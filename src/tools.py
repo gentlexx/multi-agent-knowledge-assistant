@@ -1,12 +1,12 @@
 from langchain.tools import tool
-import ast
-import operator
 from datetime import datetime
 from pathlib import Path
 import requests
 import os
 import json
 import re
+
+from src.safe_utils import evaluate_arithmetic, safe_child_path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 NOTES_DIR = PROJECT_ROOT / "notes"
@@ -15,46 +15,7 @@ EVENTS_FILE = PROJECT_ROOT / "calendar_events.json"
 
 def _safe_note_path(filename: str) -> Path:
     """Resolve a note name inside NOTES_DIR and reject path traversal."""
-    candidate = (NOTES_DIR / filename).resolve()
-    notes_root = NOTES_DIR.resolve()
-    if candidate == notes_root or notes_root not in candidate.parents:
-        raise ValueError("笔记文件名必须位于 notes 目录内")
-    return candidate
-
-
-_BINARY_OPERATORS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.FloorDiv: operator.floordiv,
-    ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
-}
-_UNARY_OPERATORS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
-
-
-def _evaluate_arithmetic(expression: str):
-    """Evaluate arithmetic only; names, calls and attribute access are rejected."""
-    if len(expression) > 200:
-        raise ValueError("表达式过长")
-    tree = ast.parse(expression, mode="eval")
-
-    def visit(node):
-        if isinstance(node, ast.Expression):
-            return visit(node.body)
-        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
-            return node.value
-        if isinstance(node, ast.BinOp) and type(node.op) in _BINARY_OPERATORS:
-            left, right = visit(node.left), visit(node.right)
-            if isinstance(node.op, ast.Pow) and abs(right) > 100:
-                raise ValueError("指数过大")
-            return _BINARY_OPERATORS[type(node.op)](left, right)
-        if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPERATORS:
-            return _UNARY_OPERATORS[type(node.op)](visit(node.operand))
-        raise ValueError("仅支持数字和基本算术运算")
-
-    return visit(tree)
+    return safe_child_path(NOTES_DIR, filename)
 
 
 @tool
@@ -65,7 +26,7 @@ def get_weather(city: str) -> str:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             return f"{city}：{response.text.strip()}"
-    except:
+    except requests.RequestException:
         pass
     # 降级模拟数据
     db = {"北京": "晴 15-25°C", "上海": "多云 18-26°C", "深圳": "晴 22-30°C"}
@@ -80,7 +41,7 @@ def get_current_time() -> str:
 def calculate(expression: str) -> str:
     """计算数学表达式"""
     try:
-        return f"{expression} = {_evaluate_arithmetic(expression)}"
+        return f"{expression} = {evaluate_arithmetic(expression)}"
     except (SyntaxError, TypeError, ValueError, ZeroDivisionError, OverflowError):
         return "计算错误"
 
@@ -123,7 +84,7 @@ def search_web(query: str) -> str:
                         top.append(f"• {title[:50]}: {link[:80]}")
                 if top:
                     return "搜索结果：\n" + "\n".join(top)
-        except:
+        except requests.RequestException:
             pass
     except Exception as e:
         print(f"搜索错误: {e}")
@@ -174,10 +135,10 @@ def add_calendar_event(event: str, time: str) -> str:
     events_file = EVENTS_FILE
     events = []
     if os.path.exists(events_file):
-        with open(events_file, 'r') as f:
+        with open(events_file, 'r', encoding='utf-8') as f:
             events = json.load(f)
     events.append({"event": event, "time": time, "created": datetime.now().isoformat()})
-    with open(events_file, 'w') as f:
+    with open(events_file, 'w', encoding='utf-8') as f:
         json.dump(events[-50:], f, ensure_ascii=False, indent=2)
     return f"已添加：{event}，时间：{time}"
 
@@ -188,7 +149,7 @@ def list_events() -> str:
     events_file = EVENTS_FILE
     if not os.path.exists(events_file):
         return "暂无事件"
-    with open(events_file, 'r') as f:
+    with open(events_file, 'r', encoding='utf-8') as f:
         events = json.load(f)
     if not events:
         return "暂无事件"

@@ -36,7 +36,7 @@ pytest
 ruff check src tests
 ```
 
-Offline tests cover source syntax, arithmetic-expression safety, and note-path isolation. End-to-end RAG and Agent execution requires external model access; see [docs/verification.md](docs/verification.md).
+Offline tests cover source syntax, arithmetic-expression safety, and note-path isolation. GitHub Actions repeats compilation, tests, and repository-content auditing on every push and pull request. End-to-end RAG and Agent execution requires external model access; see [docs/verification.md](docs/verification.md).
 
 ## Current limitations
 

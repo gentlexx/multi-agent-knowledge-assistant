@@ -87,7 +87,7 @@ pytest
 ruff check src tests
 ```
 
-不需要 API Key 的离线测试覆盖源码语法、算术表达式安全和笔记路径隔离。完整 RAG/Agent 端到端运行需要模型与外部 API，验证范围及结果见 [docs/verification.md](docs/verification.md)。
+不需要 API Key 的离线测试覆盖源码语法、算术表达式安全和笔记路径隔离。GitHub Actions 会在每次推送和 Pull Request 中重复执行语法、测试与仓库敏感内容审计。完整 RAG/Agent 端到端运行需要模型与外部 API，验证范围及结果见 [docs/verification.md](docs/verification.md)。
 
 ## 项目边界
 

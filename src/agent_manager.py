@@ -57,7 +57,7 @@ class AgentManager:
                 fallback_answer = self.llm.invoke(question).content
                 print(f"(agent-fallback) 降级LLM回答: {fallback_answer[:100]}...")
                 return fallback_answer
-            except:
+            except Exception as fallback_error:
                 error_msg = f"抱歉，处理您的问题时出错：{str(e)}"
-                print(f"(agent-error) 降级也失败: {error_msg}")
+                print(f"(agent-error) 降级也失败: {fallback_error}")
                 return error_msg
